@@ -9,12 +9,16 @@
     <div id="neutralinoapp">
 
       <!--Probably should make this a file menu at some point -->
-      <button onclick="getFile()">Select PDF</button>
+      <div id="toolbar">
+        <button onclick="getFile()">Select PDF</button>
+        <button onclick="savePDF()">Save PDF</button>
+      </div>
 
       <div id="pdf-container">
-        <canvas id="pdf-canvas" style="border: 1px solid black; direction:ltr"></canvas>
+        <!-- Embedded PDF.js viewer: text selection, form filling, and annotation editing. "?file=" keeps it from loading a default document -->
+        <iframe id="pdf-frame" src="pdfjs/web/viewer.html?file=" title="PDF viewer"></iframe>
       </div>
-      
+
     </div>
     <script src="js/neutralino.js"></script>
     <script type="module" src="js/main.js"></script>

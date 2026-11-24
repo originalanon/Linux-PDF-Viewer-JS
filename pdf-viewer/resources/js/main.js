@@ -1,6 +1,5 @@
-import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.5.438/pdf.min.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.5.438/pdf.worker.min.mjs';
-
+let currentFilePath = null;
+let currentBlobUrl = null;
 
 //File select button logic
 function getFile() {
@@ -15,29 +14,47 @@ function getFile() {
         .catch(err => console.error(err));
 }
 
-//Display the selected PDF file on the canvas
+//Load the selected PDF file into the embedded PDF.js viewer
 async function displayPDF(path) {
-    const canvas = document.getElementById('pdf-canvas');
-    const context = canvas.getContext('2d');
     // Read the file through Neutralino since PDF.js can't fetch local filesystem paths
     const buffer = await Neutralino.filesystem.readBinaryFile(path);
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
-    loadingTask.promise.then(pdf => {
-        pdf.getPage(1).then(page => {
-            const viewport = page.getViewport({ scale: 1.5 });
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            const renderContext = {
-                canvasContext: context,
-                viewport: viewport
-            };
-            page.render(renderContext);
-        });
-    });
+    if(currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+    }
+    currentBlobUrl = URL.createObjectURL(new Blob([buffer], { type: 'application/pdf' }));
+    currentFilePath = path;
+    const frame = document.getElementById('pdf-frame');
+    frame.src = 'pdfjs/web/viewer.html?file=' + encodeURIComponent(currentBlobUrl);
 }
 
-// Expose for the inline onclick handler, since module scope isn't global
+//Save the PDF with any form fills and annotation edits applied
+async function savePDF() {
+    const frame = document.getElementById('pdf-frame');
+    const app = frame.contentWindow?.PDFViewerApplication;
+    if(!app || !app.pdfDocument) {
+        console.warn('No PDF is open.');
+        return;
+    }
+    try {
+        // saveDocument() bakes form field values and annotation edits into the PDF bytes
+        const data = await app.pdfDocument.saveDocument();
+        const target = await Neutralino.os.showSaveDialog('Save PDF', {
+            defaultPath: currentFilePath ?? 'document.pdf',
+            filters: [{ name: 'PDF', extensions: ['pdf'] }]
+        });
+        if(target) {
+            // Copy into a standalone ArrayBuffer for Neutralino
+            await Neutralino.filesystem.writeBinaryFile(target, data.slice().buffer);
+            console.log('Saved to ' + target);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Expose for the inline onclick handlers, since module scope isn't global
 window.getFile = getFile;
+window.savePDF = savePDF;
 
 Neutralino.init();
 Neutralino.events.on("windowClose", () => {

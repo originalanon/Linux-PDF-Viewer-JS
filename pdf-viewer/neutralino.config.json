@@ -17,6 +17,7 @@
     "app.*",
     "os.*",
     "filesystem.readBinaryFile",
+    "filesystem.writeBinaryFile",
     "debug.log"
   ],
   "globalVariables": {
